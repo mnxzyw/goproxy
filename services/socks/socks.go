@@ -64,6 +64,7 @@ type SocksArgs struct {
 	ParentKey             *string
 	LocalCompress         *bool
 	ParentCompress        *bool
+	Intelligent           *string
 	LoadBalanceMethod     *string
 	LoadBalanceTimeout    *int
 	LoadBalanceRetryTime  *int
@@ -180,7 +181,7 @@ func (s *Socks) InitService() (err error) {
 		(*s).domainResolver = dnsx.NewDomainResolver(*s.cfg.DNSAddress, *s.cfg.DNSTTL, s.log)
 	}
 	if len(*s.cfg.Parent) > 0 {
-		s.checker = utils.NewChecker(*s.cfg.Timeout, int64(*s.cfg.Interval), *s.cfg.Blocked, *s.cfg.Direct, s.log)
+		s.checker = utils.NewChecker(*s.cfg.Timeout, int64(*s.cfg.Interval), *s.cfg.Blocked, *s.cfg.Direct, s.log, *s.cfg.Intelligent)
 		s.InitLB()
 	}
 	if *s.cfg.ParentType == "ssh" {
@@ -192,7 +193,7 @@ func (s *Socks) InitService() (err error) {
 		go func() {
 			defer func() {
 				if e := recover(); e != nil {
-					fmt.Printf("crashed, err: %s\nstack:", e, string(debug.Stack()))
+					fmt.Printf("crashed, err: %s\nstack:\n%s", e, string(debug.Stack()))
 				}
 			}()
 			//循环检查ssh网络连通性
@@ -230,7 +231,7 @@ func (s *Socks) StopService() {
 		if e != nil {
 			s.log.Printf("stop socks service crashed,%s", e)
 		} else {
-			s.log.Printf("service socks stoped")
+			s.log.Printf("service socks stopped")
 		}
 		s.basicAuth = utils.BasicAuth{}
 		s.cfg = SocksArgs{}

@@ -176,7 +176,7 @@ func (s *TunnelServer) StopService() {
 		if e != nil {
 			s.log.Printf("stop server service crashed,%s", e)
 		} else {
-			s.log.Printf("service server stoped")
+			s.log.Printf("service server stopped")
 		}
 		s.cfg = TunnelServerArgs{}
 		s.jumper = nil
@@ -369,7 +369,7 @@ func (s *TunnelServer) UDPGCDeamon() {
 	go func() {
 		defer func() {
 			if e := recover(); e != nil {
-				fmt.Printf("crashed, err: %s\nstack:", e, string(debug.Stack()))
+				fmt.Printf("crashed, err: %s\nstack:\n%s", e, string(debug.Stack()))
 			}
 		}()
 		if s.isStop {
@@ -440,7 +440,7 @@ func (s *TunnelServer) UDPRevecive(key, ID string) {
 	go func() {
 		defer func() {
 			if e := recover(); e != nil {
-				fmt.Printf("crashed, err: %s\nstack:", e, string(debug.Stack()))
+				fmt.Printf("crashed, err: %s\nstack:\n%s", e, string(debug.Stack()))
 			}
 		}()
 		s.log.Printf("udp conn %s connected", ID)
@@ -473,7 +473,7 @@ func (s *TunnelServer) UDPRevecive(key, ID string) {
 			go func() {
 				defer func() {
 					if e := recover(); e != nil {
-						fmt.Printf("crashed, err: %s\nstack:", e, string(debug.Stack()))
+						fmt.Printf("crashed, err: %s\nstack:\n%s", e, string(debug.Stack()))
 					}
 				}()
 				s.sc.UDPListener.WriteToUDP(body, uc.srcAddr)

@@ -8,11 +8,11 @@ Proxy is a high performance HTTP, HTTPS, HTTPS, websocket, TCP, UDP, Socks5, ss 
   
 **[中文手册](/README_ZH.md)**  
 
-**[全平台图形界面版本](/gui/README.md)**  
+**[Full-platform graphical interface version](/gui/README.md)**  
 
-**[全平台SDK](/sdk/README.md)**
+**[Full platform SDK](/sdk/README.md)**
 
-**[GoProxy特殊授权](/AUTHORIZATION.md)**
+**[GoProxy special authorization](/AUTHORIZATION.md)**
 
 ### How to contribute to the code (Pull Request)?  
 
@@ -100,7 +100,8 @@ This page is the v6.0 manual, and the other version of the manual can be checked
     - [1.15 speed limit](#115-speed-limit)
     - [1.16 Designated exporting IP](#116-designated-export-ip)
     - [1.17 Certificate parameters using Base64 data](#117-certificate-parameters-using-Base64-data)
-    - [1.18 View help](#118view-help)
+    - [1.18 Intelligent mode](#118-intelligent-mode)
+    - [1.19 View help](#119view-help)
 - [2.TCP proxy](#2tcp-proxy)
     - [2.1 Common TCP first level proxy](#21common-tcp-first-level-proxy)
     - [2.2 Common TCP second level proxy](#22common-tcp-second-level-proxy)
@@ -145,7 +146,8 @@ This page is the v6.0 manual, and the other version of the manual can be checked
     - [5.14 Designated exporting IP](#514-designated-exporting-ip)
     - [5.15 Cascade authentication](#515-cascade-authentication)
     - [5.16 Certificate parameters using Base64 data](#516-certificate-parameters-using-base64-data)
-    - [5.17 View help](#517view-help)
+    - [5.17 Intelligent mode](#517-intelligent-mode)
+    - [5.18 View help](#518view-help)
 - [6.Proxy protocol conversion](#6proxy-protocol-conversion)
     - [6.1 Functional introduction](#61functional-introduction)
     - [6.2 HTTP(S) to HTTP(S) + SOCKS5](#62http-to-http-socks5)
@@ -323,7 +325,7 @@ accessing the local 8080 port is accessing the proxy port 38080 above VPS.  
   
 HTTP second level proxy(local windows)  
 `./proxy.exe http -t tcp -p ":8080" -T tls -P "22.22.22.22:38080" -C proxy.crt -K proxy.key`  
-In your windos system, the mode of the program that needs to surf the Internet by proxy is setted up as HTTP mode, the address is 127.0.0.1, the port is: 8080, the program can go through the encrypted channel through VPS to surf on the internet.  
+In your windows system, the mode of the program that needs to surf the Internet by proxy is setted up as HTTP mode, the address is 127.0.0.1, the port is: 8080, the program can go through the encrypted channel through VPS to surf on the internet.  
   
 #### **1.4.HTTP third level encrypted proxy**  
 ![1.4](/docs/images/http-tls-3.png)  
@@ -513,14 +515,22 @@ The speed limit is 100K, which can be specified through the `-l` parameter, for 
 `proxy http -t tcp -p 2.2.2.2:33080 -l 100K`
 
 ### **1.16 Designated exporting IP**  
-The `- bind-listen` parameter opens the client's ability to access the target site with an entry IP connection, using the entry IP as the exporting IP. If the entry IP is the intranet IP, the exporting IP will not use the entry IP..    
+The `--bind-listen` parameter open the client's ability to access the target site with an entry IP connection, using the entry IP as the exporting IP. If the entry IP is the intranet IP, the exporting IP will not use the entry IP..    
 `proxy http -t tcp -p 2.2.2.2:33080 --bind-listen`
 
 ### **1.17 Certificate parameters using Base64 data**  
 By default, the -C and -K parameters are the paths of CRT certificates and key files,
 If it is the beginning of base64://, then it is considered that the data behind is Base64 encoded and will be used after decoding.
 
-#### **1.18.view help**  
+#### **1.18 Intelligent mode**  
+Intelligent mode setting which can be one of intelligent|direct|parent.  
+default:intelligent.  
+The meaning of each value is as follows:  
+`--intelligent=direct`, Targets that are not in blocked directly connected.  
+`--intelligent=parent`, Targets that are not in direct connect to parent proxy.  
+`--intelligent=intelligent`, Targets that are not in direct and blocked Neither can intelligently judge on whether to connetc parent proxy.  
+
+#### **1.19.view help**  
 `./proxy help http`  
   
 ### **2.TCP proxy**  
@@ -959,9 +969,17 @@ localhost:
 
 #### **5.16 Certificate parameters using Base64 data**  
 By default, the -C and -K parameters are the paths of CRT certificates and key files,    
-If it is the beginning of base64://, then it is considered that the data behind is Base64 encoded and will be used after decoding..   
+If it is the beginning of base64://, then it is considered that the data behind is Base64 encoded and will be used after decoding.   
 
-#### **5.17.view help**  
+#### **5.17 Intelligent mode**  
+Intelligent mode setting which can be one of intelligent|direct|parent.  
+default:intelligent.  
+The meaning of each value is as follows:  
+`--intelligent=direct`, Targets that are not in blocked directly connected.  
+`--intelligent=parent`, Targets that are not in direct connect to parent proxy.  
+`--intelligent=intelligent`, Targets that are not in direct and blocked Neither can intelligently judge on whether to connetc parent proxy. 
+
+#### **5.18.view help**  
 `./proxy help socks`  
 
 ### **6.Proxy protocol conversion** 
@@ -1090,8 +1108,8 @@ Local third level execution:
 through this way, When you visits the website by local proxy 8080, it visits the target website by encryption transmission with the parents proxy.  
 
 #### **6.9 Compressed transmission**  
-HTTP(s) proxy can encrypt TCP data through TCP standard encryption and KCP protocol encryption, and can also compress data before custom encryption.
-That is to say, compression and custom encryption and tls|kcp can be used together, compression is divided into two parts, the one is whether the local (-z) is compressed transmission, the other is whether the parents (-Z) is compressed transmission.
+HTTP(s) proxy can encrypt TCP data through TCP standard encryption and KCP protocol encryption, and can also compress data before custom encryption.    
+That is to say, compression and custom encryption and tls|kcp can be used together, compression is divided into two parts, the one is whether the local (-z) is compressed transmission, the other is whether the parents (-Z) is compressed transmission.    
 The compression requires both ends are proxy. Compression also protects the (encryption) data in certain extent. we use two level example and three level example as examples:  
 
 **two level example**  
@@ -1104,7 +1122,7 @@ through this way, When you visits the website by local proxy 8080, it visits the
 **three level example**  
 First level VPS (ip:2.2.2.2) execution:  
 `proxy sps -t tcp -m -p :7777`  
-Second level VPS (ip:3.3.3.3) execution::  
+Second level VPS (ip:3.3.3.3) execution:  
 `proxy sps -T tcp -P 2.2.2.2:7777 -M -t tcp -m -p :8888` 
 Local third level execution:  
 `proxy sps -T tcp -P 3.3.3.3:8888 -M -t tcp -p :8080`  
@@ -1113,25 +1131,25 @@ through this way, When you visits the website by local proxy 8080, it visits the
 #### **6.10 Disable protocol**  	
 By default, SPS's port supports two proxy protocols, http (s) and socks5, and we can disable a protocol with parameters.  	 
 for example:  
-1.Disable the HTTP (S) proxy, retaining only the SOCKS5 proxy,parameter:`--disable-http`.   
-`proxy sps -T tcp -P 3.3.3.3:8888 -M -t tcp -p :8080 --disable-http`
-1.Disable the SOCKS5 proxy, retaining only the HTTP (S) proxy,parameter:`--disable-socks`.     
+1.Disable the HTTP (S) proxy, retaining only the SOCKS5 proxy,parameter:`--disable-http`.       
 `proxy sps -T tcp -P 3.3.3.3:8888 -M -t tcp -p :8080 --disable-http`    
+1.Disable the SOCKS5 proxy, retaining only the HTTP (S) proxy,parameter:`--disable-socks`.     
+`proxy sps -T tcp -P 3.3.3.3:8888 -M -t tcp -p :8080 --disable-http`     
 
 #### **6.11 Speed limit**  
-Suppose there has a SOCKS5 parent proxy:
-`proxy socks -p 2.2.2.2:33080 -z password -t tcp`
-SPS lower speed limit 100K
-`proxy sps -S socks -P 2.2.2.2:33080 -T tcp -Z password -l 100K -t tcp -p :33080`
-It can be specified through the `-l` parameter, for example: 100K 1.5M. 0 means unlimited..
+Suppose there has a SOCKS5 parent proxy:    
+`proxy socks -p 2.2.2.2:33080 -z password -t tcp`   
+SPS lower speed limit 100K    
+`proxy sps -S socks -P 2.2.2.2:33080 -T tcp -Z password -l 100K -t tcp -p :33080`   
+It can be specified through the `-l` parameter, for example: 100K 1.5M. 0 means unlimited.    
 
 #### **6.12 Designated exporting IP**  
-The `- bind-listen` parameter opens the client's ability to access the target site with an entry IP connection, using the entry IP as the exporting IP. If the entry IP is the intranet IP, the exporting IP will not use the entry IP.
+The `- bind-listen` parameter opens the client's ability to access the target site with an entry IP connection, using the entry IP as the exporting IP. If the entry IP is the intranet IP, the exporting IP will not use the entry IP.   
 `proxy sps -S socks -P 2.2.2.2:33080 -T tcp -Z password -l 100K -t tcp --bind-listen -p :33080`
 
 #### **6.13 Certificate parameters using Base64 data**  
-By default, the -C and -K parameters are the paths of CRT certificates and key files,
-If it is the beginning of base64://, then it is considered that the data behind is Base64 encoded and will be used after decoding.
+By default, the -C and -K parameters are the paths of CRT certificates and key files,   
+If it is the beginning of base64://, then it is considered that the data behind is Base64 encoded and will be used after decoding.    
 
 #### **6.14.view help** 
 `./proxy help sps` 
@@ -1170,7 +1188,7 @@ If you want to get a more detailed configuration and explanation of the KCP para
 ### **8.DNS anti pollution server** 
 
 #### **8.1.Introduction** 
-It is well known that DNS is a service which use UDP protocol and 53 port，But with the development of network, some well-known DNS servers also support TCP protocol's DNS query，such as google's 8.8.8.8，Proxy's DNS anti pollution server theory is starting a local DNS proxy server，It uses TCP to conduct DNS queries through father proxy. If it encrypted communicate with father proxy，Then you can make a safe and pollution-free DNS analysis.
+It is well known that DNS is a service which use UDP protocol and 53 port，But with the development of network, some well-known DNS servers also support TCP protocol's DNS query，such as google's 8.8.8.8，Proxy's DNS anti pollution server theory is starting a local DNS proxy server，It uses TCP to conduct DNS queries through father proxy. If it encrypted communicate with father proxy，Then you can make a safe and pollution-free DNS analysis.    
 
 #### **8.2.Use examples** 
 
@@ -1188,24 +1206,24 @@ Then the local UDP port 53 provides the DNS analysis.
 
 ***8.2.3 TLS encrypted HTTP(S) father proxy***   
 Suppose there is a father proxy：2.2.2.2:33080  
-The orders executed by father proxy：
-`proxy http -t tls -C proxy.crt -K proxy.key -p :33080`
+The orders executed by father proxy：    
+`proxy http -t tls -C proxy.crt -K proxy.key -p :33080`   
 local execution：  
 `proxy dns -S http -T tls -P 2.2.2.2:33080  -C proxy.crt -K proxy.key -p :53`  
-Then the local UDP port 53 provides a security and anti pollution DNS analysis. 
+Then the local UDP port 53 provides a security and anti pollution DNS analysis.   
 
 ***8.2.4 TLS encrypted SOCKS5 father proxy***   
-Suppose there is a father proxy：2.2.2.2:33080  
-The orders executed by father proxy：
-`proxy socks -t tls -C proxy.crt -K proxy.key -p :33080`
+Suppose there is a father proxy：2.2.2.2:33080   
+The orders executed by father proxy：    
+`proxy socks -t tls -C proxy.crt -K proxy.key -p :33080`    
 local execution：  
-`proxy dns -S socks -T tls -P 2.2.2.2:33080  -C proxy.crt -K proxy.key -p :53`  
+`proxy dns -S socks -T tls -P 2.2.2.2:33080  -C proxy.crt -K proxy.key -p :53`     
 Then the local UDP port 53 provides a security and anti pollution DNS analysis.  
 
 ***8.2.5 KCP encrypted HTTP(S) father proxy***   
 Suppose there is a father proxy：2.2.2.2:33080  
 The orders executed by father proxy：
-`proxy http -t kcp -p :33080`
+`proxy http -t kcp -p :33080`   
 local execution：  
 `proxy dns -S http -T kcp -P 2.2.2.2:33080 -p :53`  
 Then the local UDP port 53 provides a security and anti pollution DNS analysis. 
@@ -1213,33 +1231,33 @@ Then the local UDP port 53 provides a security and anti pollution DNS analysis.
 ***8.2.6 KCP encrypted SOCKS5 father proxy***   
 Suppose there is a father proxy：2.2.2.2:33080  
 The orders executed by father proxy：
-`proxy socks -t kcp -p :33080`
+`proxy socks -t kcp -p :33080`    
 local execution：  
-`proxy dns -S socks -T kcp -P 2.2.2.2:33080 -p :53`  
+`proxy dns -S socks -T kcp -P 2.2.2.2:33080 -p :53`     
 Then the local UDP port 53 provides a security and anti pollution DNS analysis. 
 
 ***8.2.7 Custom encrypted HTTP(S) father proxy***   
 Suppose there is a father proxy：2.2.2.2:33080  
 The orders executed by father proxy：
-`proxy http -t tcp -p :33080 -z password`
+`proxy http -t tcp -p :33080 -z password`   
 local execution：  
-`proxy dns -S http -T tcp -Z password -P 2.2.2.2:33080 -p :53`  
+`proxy dns -S http -T tcp -Z password -P 2.2.2.2:33080 -p :53`      
 Then the local UDP port 53 provides a security and anti pollution DNS analysis. 
 
 ***8.2.8 Custom encrypted SOCKS5 father proxy***   
 Suppose there is a father proxy：2.2.2.2:33080  
 The orders executed by father proxy：
-`proxy socks -t kcp -p :33080 -z password`
+`proxy socks -t kcp -p :33080 -z password`    
 local execution：  
 `proxy dns -S socks -T tcp -Z password -P 2.2.2.2:33080 -p :53`  
 Then the local UDP port 53 provides a security and anti pollution DNS analysis.
 
-### TODO  
+### TODO
 - HTTP, socks proxy which has multi parents proxy load balancing?
 - HTTP (s) proxy support PAC?
-- Welcome joining group feedback...   
+- Welcome joining group feedback...
 
-### How to use the source code?  
+### How to use the source code?
 
 Recommend go1.10.1.   
 `go get github.com/snail007/goproxy`   
@@ -1247,20 +1265,19 @@ use command cd to enter your go SRC directory
 then cd to enter `github.com/snail007/goproxy`.    
 Direct compilation:`go build -o proxy`        
 execution: `go run *.go`       
-`utils` is a toolkit, and `service` is a specific service class. 
+`utils` is a toolkit, and `service` is a specific service class.
 
 ### License  
-Proxy is licensed under GPLv3 license.  
+Proxy is licensed under GPLv3 license.
+
 ### Contact  
-proxy QQ group:189618940  
+proxy QQ group: 7930152191 , 189618940 (full)
   
 ### Donation  
-if proxy help you a lot,you can support us by:  
-### AliPay   
-<img src="https://github.com/snail007/goproxy/blob/master/docs/images/alipay.jpg?raw=true" width="200"/>  
-  
-### Wechat Pay  
-<img src="https://github.com/snail007/goproxy/blob/master/docs/images/wxpay.jpg?raw=true" width="200"/>  
+if proxy help you a lot,you can support us by:
 
+### AliPay
+<img src="https://github.com/snail007/goproxy/blob/master/docs/images/alipay.jpg?raw=true" width="200"/>
   
-  
+### Wechat Pay
+<img src="https://github.com/snail007/goproxy/blob/master/docs/images/wxpay.jpg?raw=true" width="200"/>

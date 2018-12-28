@@ -34,11 +34,12 @@ import (
 )
 
 var (
-	app                                                                                                       *kingpin.Application
-	service                                                                                                   *services.ServiceItem
-	cmd                                                                                                       *exec.Cmd
-	cpuProfilingFile, memProfilingFile, blockProfilingFile, goroutineProfilingFile, threadcreateProfilingFile *os.File
-	isDebug                                                                                                   bool
+	app     *kingpin.Application
+	service *services.ServiceItem
+	cmd     *exec.Cmd
+	cpuProfilingFile, memProfilingFile, blockProfilingFile,
+	goroutineProfilingFile, threadcreateProfilingFile *os.File
+	isDebug *bool
 )
 
 func initConfig() (err error) {
@@ -60,7 +61,7 @@ func initConfig() (err error) {
 	//build srvice args
 	app = kingpin.New("proxy", "happy with proxy")
 	app.Author("snail").Version(APP_VERSION)
-	isDebug := app.Flag("debug", "debug log output").Default("false").Bool()
+	isDebug = app.Flag("debug", "debug log output").Default("false").Bool()
 	daemon := app.Flag("daemon", "run proxy in background").Default("false").Bool()
 	forever := app.Flag("forever", "run proxy in forever,fail and retry").Default("false").Bool()
 	logfile := app.Flag("log", "log file path").Default("").String()
@@ -116,13 +117,15 @@ func initConfig() (err error) {
 	httpArgs.ParentKey = http.Flag("parent-key", "the password for auto encrypt/decrypt parent connection data").Short('Z').Default("").String()
 	httpArgs.LocalCompress = http.Flag("local-compress", "auto compress/decompress data on local connection").Short('m').Default("false").Bool()
 	httpArgs.ParentCompress = http.Flag("parent-compress", "auto compress/decompress data on parent connection").Short('M').Default("false").Bool()
-	httpArgs.LoadBalanceMethod = http.Flag("lb-method", "load balance method when use multiple parent,can be <roundrobin|leastconn|leasttime|hash|weight>").Default("hash").Enum("roundrobin", "weight", "leastconn", "leasttime", "hash")
+	httpArgs.Intelligent = http.Flag("intelligent", "settting intelligent HTTP, SOCKS5 proxy mode, can be <intelligent|direct|parent>").Default("intelligent").Enum("intelligent", "direct", "parent")
+	httpArgs.LoadBalanceMethod = http.Flag("lb-method", "load balance method when use multiple parent,can be <roundrobin|leastconn|leasttime|hash|weight>").Default("roundrobin").Enum("roundrobin", "weight", "leastconn", "leasttime", "hash")
 	httpArgs.LoadBalanceTimeout = http.Flag("lb-timeout", "tcp milliseconds timeout of connecting to parent").Default("500").Int()
 	httpArgs.LoadBalanceRetryTime = http.Flag("lb-retrytime", "sleep time milliseconds after checking").Default("1000").Int()
 	httpArgs.LoadBalanceHashTarget = http.Flag("lb-hashtarget", "use target address to choose parent for LB").Default("false").Bool()
 	httpArgs.LoadBalanceOnlyHA = http.Flag("lb-onlyha", "use only `high availability mode` to choose parent for LB").Default("false").Bool()
 	httpArgs.RateLimit = http.Flag("rate-limit", "rate limit (bytes/second) of each connection, such as: 100K 1.5M . 0 means no limitation").Short('l').Default("0").String()
 	httpArgs.BindListen = http.Flag("bind-listen", "using listener binding IP when connect to target").Short('B').Default("false").Bool()
+	httpArgs.Jumper = http.Flag("jumper", "https or socks5 proxies used when connecting to parent, only worked of -T is tls or tcp, format is https://username:password@host:port https://host:port or socks5://username:password@host:port socks5://host:port").Short('J').Default("").String()
 	httpArgs.Debug = isDebug
 	//########tcp#########
 	tcp := app.Command("tcp", "proxy on tcp mode")
@@ -219,7 +222,7 @@ func initConfig() (err error) {
 	tunnelBridgeArgs.Timeout = tunnelBridge.Flag("timeout", "tcp timeout with milliseconds").Short('t').Default("2000").Int()
 	tunnelBridgeArgs.Local = tunnelBridge.Flag("local", "local ip:port to listen").Short('p').Default(":33080").String()
 
-	//########ssh#########
+	//########socks#########
 	socks := app.Command("socks", "proxy on ssh mode")
 	socksArgs.Parent = socks.Flag("parent", "parent ssh address, such as: \"23.32.32.19:22\"").Default("").Short('P').Strings()
 	socksArgs.ParentType = socks.Flag("parent-type", "parent protocol type <tls|tcp|kcp|ssh>").Default("tcp").Short('T').Enum("tls", "tcp", "kcp", "ssh")
@@ -251,7 +254,8 @@ func initConfig() (err error) {
 	socksArgs.ParentKey = socks.Flag("parent-key", "the password for auto encrypt/decrypt parent connection data").Short('Z').Default("").String()
 	socksArgs.LocalCompress = socks.Flag("local-compress", "auto compress/decompress data on local connection").Short('m').Default("false").Bool()
 	socksArgs.ParentCompress = socks.Flag("parent-compress", "auto compress/decompress data on parent connection").Short('M').Default("false").Bool()
-	socksArgs.LoadBalanceMethod = socks.Flag("lb-method", "load balance method when use multiple parent,can be <roundrobin|leastconn|leasttime|hash|weight>").Default("hash").Enum("roundrobin", "weight", "leastconn", "leasttime", "hash")
+	socksArgs.Intelligent = socks.Flag("intelligent", "settting intelligent HTTP, SOCKS5 proxy mode, can be <intelligent|direct|parent>").Default("intelligent").Enum("intelligent", "direct", "parent")
+	socksArgs.LoadBalanceMethod = socks.Flag("lb-method", "load balance method when use multiple parent,can be <roundrobin|leastconn|leasttime|hash|weight>").Default("roundrobin").Enum("roundrobin", "weight", "leastconn", "leasttime", "hash")
 	socksArgs.LoadBalanceTimeout = socks.Flag("lb-timeout", "tcp milliseconds timeout of connecting to parent").Default("500").Int()
 	socksArgs.LoadBalanceRetryTime = socks.Flag("lb-retrytime", "sleep time milliseconds after checking").Default("1000").Int()
 	socksArgs.LoadBalanceHashTarget = socks.Flag("lb-hashtarget", "use target address to choose parent for LB").Default("false").Bool()
@@ -260,7 +264,7 @@ func initConfig() (err error) {
 	socksArgs.BindListen = socks.Flag("bind-listen", "using listener binding IP when connect to target").Short('B').Default("false").Bool()
 	socksArgs.Debug = isDebug
 
-	//########socks+http(s)#########
+	//########sps#########
 	sps := app.Command("sps", "proxy on socks+http(s) mode")
 	spsArgs.Parent = sps.Flag("parent", "parent address, such as: \"23.32.32.19:28008\"").Default("").Short('P').Strings()
 	spsArgs.CertFile = sps.Flag("cert", "cert file for tls").Short('C').Default("proxy.crt").String()
@@ -292,12 +296,13 @@ func initConfig() (err error) {
 	spsArgs.DisableHTTP = sps.Flag("disable-http", "disable http(s) proxy").Default("false").Bool()
 	spsArgs.DisableSocks5 = sps.Flag("disable-socks", "disable socks proxy").Default("false").Bool()
 	spsArgs.DisableSS = sps.Flag("disable-ss", "disable ss proxy").Default("false").Bool()
-	spsArgs.LoadBalanceMethod = sps.Flag("lb-method", "load balance method when use multiple parent,can be <roundrobin|leastconn|leasttime|hash|weight>").Default("hash").Enum("roundrobin", "weight", "leastconn", "leasttime", "hash")
+	spsArgs.LoadBalanceMethod = sps.Flag("lb-method", "load balance method when use multiple parent,can be <roundrobin|leastconn|leasttime|hash|weight>").Default("roundrobin").Enum("roundrobin", "weight", "leastconn", "leasttime", "hash")
 	spsArgs.LoadBalanceTimeout = sps.Flag("lb-timeout", "tcp milliseconds timeout of connecting to parent").Default("500").Int()
 	spsArgs.LoadBalanceRetryTime = sps.Flag("lb-retrytime", "sleep time milliseconds after checking").Default("1000").Int()
 	spsArgs.LoadBalanceHashTarget = sps.Flag("lb-hashtarget", "use target address to choose parent for LB").Default("false").Bool()
 	spsArgs.LoadBalanceOnlyHA = sps.Flag("lb-onlyha", "use only `high availability mode` to choose parent for LB").Default("false").Bool()
 	spsArgs.RateLimit = sps.Flag("rate-limit", "rate limit (bytes/second) of each connection, such as: 100K 1.5M . 0 means no limitation").Short('l').Default("0").String()
+	spsArgs.Jumper = sps.Flag("jumper", "https or socks5 proxies used when connecting to parent, only worked of -T is tls or tcp, format is https://username:password@host:port https://host:port or socks5://username:password@host:port socks5://host:port").Default("").String()
 	spsArgs.Debug = isDebug
 
 	//########dns#########

@@ -36,10 +36,10 @@ func Clean(s *services.Service) {
 	go func() {
 		defer func() {
 			if e := recover(); e != nil {
-				fmt.Printf("crashed, err: %s\nstack:",e, string(debug.Stack()))
+				fmt.Printf("crashed, err: %s\nstack:\n%s", e, string(debug.Stack()))
 			}
 		}()
-		for _ = range signalChan {
+		for range signalChan {
 			log.Println("Received an interrupt, stopping services...")
 			if s != nil && *s != nil {
 				(*s).Clean()
@@ -48,11 +48,12 @@ func Clean(s *services.Service) {
 				log.Printf("clean process %d", cmd.Process.Pid)
 				cmd.Process.Kill()
 			}
-			if isDebug {
+			if *isDebug {
 				saveProfiling()
 			}
 			cleanupDone <- true
 		}
 	}()
 	<-cleanupDone
+	os.Exit(0)
 }

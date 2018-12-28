@@ -111,7 +111,7 @@ func (s *MuxClient) StopService() {
 		if e != nil {
 			s.log.Printf("stop client service crashed,%s", e)
 		} else {
-			s.log.Printf("service client stoped")
+			s.log.Printf("service client stopped")
 		}
 		s.cfg = MuxClientArgs{}
 		s.jumper = nil
@@ -242,9 +242,9 @@ func (s *MuxClient) getParentConn() (conn net.Conn, err error) {
 				conn = net.Conn(&_conn)
 			}
 		} else {
-			conf, err := utils.TlsConfig(s.cfg.CertBytes, s.cfg.KeyBytes, nil)
-			if err != nil {
-				return nil, err
+			conf, e := utils.TlsConfig(s.cfg.CertBytes, s.cfg.KeyBytes, nil)
+			if e != nil {
+				return nil, e
 			}
 			var _c net.Conn
 			_c, err = s.jumper.Dial(*s.cfg.Parent, time.Millisecond*time.Duration(*s.cfg.Timeout))

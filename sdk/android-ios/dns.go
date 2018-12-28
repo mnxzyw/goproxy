@@ -58,6 +58,17 @@ func (s *DNS) InitService() (err error) {
 	s.cache = gocache.New(time.Second*time.Duration(*s.cfg.DNSTTL), time.Second*60)
 	s.cache.LoadFile(*s.cfg.CacheFile)
 	go func() {
+		for {
+			select {
+			case <-s.exitSig:
+				return
+			case <-time.After(time.Second * 300):
+				s.cache.DeleteExpired()
+				s.cache.SaveFile(*s.cfg.CacheFile)
+			}
+		}
+	}()
+	go func() {
 		defer func() {
 			if e := recover(); e != nil {
 				fmt.Printf("crashed, err: %s\nstack:%s", e, string(debug.Stack()))
@@ -81,7 +92,7 @@ func (s *DNS) InitService() (err error) {
 		nil,
 		&net.Dialer{
 			Timeout:   5 * time.Second,
-			KeepAlive: 5 * time.Second,
+			KeepAlive: 2 * time.Second,
 		},
 	)
 	if err != nil {
@@ -122,7 +133,7 @@ func (s *DNS) StopService() {
 		if e != nil {
 			s.log.Printf("stop dns service crashed,%s", e)
 		} else {
-			s.log.Printf("service dns stoped")
+			s.log.Printf("service dns stopped")
 		}
 	}()
 	Stop(s.serviceKey)

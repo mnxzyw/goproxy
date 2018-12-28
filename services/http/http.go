@@ -18,6 +18,7 @@ import (
 	"github.com/snail007/goproxy/utils/datasize"
 	"github.com/snail007/goproxy/utils/dnsx"
 	"github.com/snail007/goproxy/utils/iolimiter"
+	"github.com/snail007/goproxy/utils/jumper"
 	"github.com/snail007/goproxy/utils/lb"
 	"github.com/snail007/goproxy/utils/mapx"
 
@@ -65,6 +66,7 @@ type HTTPArgs struct {
 	ParentKey             *string
 	LocalCompress         *bool
 	ParentCompress        *bool
+	Intelligent           *string
 	LoadBalanceMethod     *string
 	LoadBalanceTimeout    *int
 	LoadBalanceRetryTime  *int
@@ -75,6 +77,7 @@ type HTTPArgs struct {
 	RateLimitBytes float64
 	BindListen     *bool
 	Debug          *bool
+	Jumper         *string
 }
 type HTTP struct {
 	cfg            HTTPArgs
@@ -88,6 +91,7 @@ type HTTP struct {
 	userConns      mapx.ConcurrentMap
 	log            *logger.Logger
 	lb             *lb.Group
+	jumper         *jumper.Jumper
 }
 
 func NewHTTP() services.Service {
@@ -163,13 +167,26 @@ func (s *HTTP) CheckArgs() (err error) {
 		}
 		s.cfg.RateLimitBytes = float64(size)
 	}
+	if *s.cfg.Jumper != "" {
+		if *s.cfg.ParentType != "tls" && *s.cfg.ParentType != "tcp" {
+			err = fmt.Errorf("jumper only worked of -T is tls or tcp")
+			return
+		}
+		var j jumper.Jumper
+		j, err = jumper.New(*s.cfg.Jumper, time.Millisecond*time.Duration(*s.cfg.Timeout))
+		if err != nil {
+			err = fmt.Errorf("parse jumper fail, err %s", err)
+			return
+		}
+		s.jumper = &j
+	}
 	return
 }
 func (s *HTTP) InitService() (err error) {
 	s.InitBasicAuth()
 	//init lb
 	if len(*s.cfg.Parent) > 0 {
-		s.checker = utils.NewChecker(*s.cfg.HTTPTimeout, int64(*s.cfg.Interval), *s.cfg.Blocked, *s.cfg.Direct, s.log)
+		s.checker = utils.NewChecker(*s.cfg.HTTPTimeout, int64(*s.cfg.Interval), *s.cfg.Blocked, *s.cfg.Direct, s.log, *s.cfg.Intelligent)
 		s.InitLB()
 	}
 	if *s.cfg.DNSAddress != "" {
@@ -222,7 +239,7 @@ func (s *HTTP) StopService() {
 		if e != nil {
 			s.log.Printf("stop http(s) service crashed,%s", e)
 		} else {
-			s.log.Printf("service http(s) stoped")
+			s.log.Printf("service http(s) stopped")
 		}
 		s.basicAuth = utils.BasicAuth{}
 		s.cfg = HTTPArgs{}
@@ -231,6 +248,7 @@ func (s *HTTP) StopService() {
 		s.lb = nil
 		s.lockChn = nil
 		s.log = nil
+		s.jumper = nil
 		s.serverChannels = nil
 		s.sshClient = nil
 		s.userConns = nil
@@ -408,7 +426,7 @@ func (s *HTTP) OutToTCP(useProxy bool, address string, inConn *net.Conn, req *ut
 		//https或者http,上级是代理,proxy需要转发
 		outConn.SetDeadline(time.Now().Add(time.Millisecond * time.Duration(*s.cfg.Timeout)))
 		//直连目标或上级非代理或非SNI,,清理HTTP头部的代理头信息
-		if !useProxy || *s.cfg.ParentType == "ssh" && !req.IsSNI {
+		if (!useProxy || *s.cfg.ParentType == "ssh") && !req.IsSNI {
 			_, err = outConn.Write(utils.RemoveProxyHeaders(req.HeadBuf))
 		} else {
 			_, err = outConn.Write(req.HeadBuf)
@@ -602,11 +620,24 @@ func (s *HTTP) Resolve(address string) string {
 }
 func (s *HTTP) GetParentConn(address string) (conn net.Conn, err error) {
 	if *s.cfg.ParentType == "tls" {
-		var _conn tls.Conn
-		_conn, err = utils.TlsConnectHost(address, *s.cfg.Timeout, s.cfg.CertBytes, s.cfg.KeyBytes, s.cfg.CaCertBytes)
-		if err == nil {
-			conn = net.Conn(&_conn)
+		if s.jumper == nil {
+			var _conn tls.Conn
+			_conn, err = utils.TlsConnectHost(address, *s.cfg.Timeout, s.cfg.CertBytes, s.cfg.KeyBytes, s.cfg.CaCertBytes)
+			if err == nil {
+				conn = net.Conn(&_conn)
+			}
+		} else {
+			conf, err := utils.TlsConfig(s.cfg.CertBytes, s.cfg.KeyBytes, s.cfg.CaCertBytes)
+			if err != nil {
+				return nil, err
+			}
+			var _c net.Conn
+			_c, err = s.jumper.Dial(address, time.Millisecond*time.Duration(*s.cfg.Timeout))
+			if err == nil {
+				conn = net.Conn(tls.Client(_c, conf))
+			}
 		}
+
 	} else if *s.cfg.ParentType == "kcp" {
 		conn, err = utils.ConnectKCPHost(address, s.cfg.KCP)
 	} else if *s.cfg.ParentType == "ssh" {
@@ -616,7 +647,11 @@ func (s *HTTP) GetParentConn(address string) (conn net.Conn, err error) {
 			err = fmt.Errorf("%s", e)
 		}
 	} else {
-		conn, err = utils.ConnectHost(address, *s.cfg.Timeout)
+		if s.jumper == nil {
+			conn, err = utils.ConnectHost(address, *s.cfg.Timeout)
+		} else {
+			conn, err = s.jumper.Dial(address, time.Millisecond*time.Duration(*s.cfg.Timeout))
+		}
 	}
 	return
 }
